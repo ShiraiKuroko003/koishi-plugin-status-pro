@@ -9,11 +9,12 @@
  * Copyright (c) 2023 by Kabuda-czh, All Rights Reserved.
  */
 import { Context, Logger, Schema, segment, version } from 'koishi'
-import { getSystemInfo } from './neko/utils';
 import {} from "koishi-plugin-puppeteer";
 import { Page } from "puppeteer-core";
 import { existsSync } from 'fs';
+import os from 'os';
 import { resolve } from 'path';
+import * as si from 'systeminformation';
 
 export const name = 'status-pro'
 export const inject = ['puppeteer'] as const
@@ -49,10 +50,138 @@ interface RenderInfo {
   footer: string
 }
 
+interface CPUInfo {
+  idle: number
+  total: number
+}
+
+const ERROR_INFO = 'N / A'
+
+async function getDiskUsage() {
+  const disks = await si.fsSize()
+  let diskSize = 0
+  let diskUsed = 0
+
+  disks.forEach((disk) => {
+    diskSize += disk.size
+    diskUsed += disk.used
+  })
+
+  return { diskSize, diskUsed }
+}
+
+function getCPUInfo(): CPUInfo {
+  const cpus = os.cpus()
+  let idle = 0
+
+  const total = cpus.reduce((acc, cpu) => {
+    for (const type in cpu.times) {
+      acc += cpu.times[type as keyof typeof cpu.times]
+    }
+    idle += cpu.times.idle
+    return acc
+  }, 0)
+
+  return { idle, total }
+}
+
+async function getCPUUsage() {
+  const t1 = getCPUInfo()
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  const t2 = getCPUInfo()
+
+  const idle = t2.idle - t1.idle
+  const total = t2.total - t1.total
+
+  return {
+    cpuUsage: (1 - idle / total).toFixed(2),
+    cpuInfo: os.cpus()[0]?.model || ERROR_INFO,
+  }
+}
+
+function durationTime(time: number) {
+  const day = Math.floor(time / 86400)
+  const hour = Math.floor((time - day * 86400) / 3600)
+  const minute = Math.floor((time - day * 86400 - hour * 3600) / 60)
+  return `已持续运行 ${day}天 ${hour}小时 ${minute}分钟`
+}
+
+async function getSystemInfo(name: string, koishiVersion: string, pluginSize: number): Promise<RenderInfo> {
+  const result = await Promise.all([
+    getCPUUsage(),
+    si.osInfo(),
+    si.cpuCurrentSpeed(),
+    si.mem(),
+    getDiskUsage(),
+  ])
+
+  const { uptime } = si.time()
+  const [
+    { cpuUsage, cpuInfo },
+    { distro },
+    { avg },
+    { total, used, swaptotal, swapused },
+    { diskSize, diskUsed },
+  ] = result
+
+  const memoryTotal = `${(total / 1024 / 1024 / 1024).toFixed(2)} GB`
+  const memoryUsed = (used / 1024 / 1024 / 1024).toFixed(2)
+  const memoryUsage = (used / total).toFixed(2)
+
+  const swapTotal = `${(swaptotal / 1024 / 1024 / 1024).toFixed(2)} GB`
+  const swapUsed = (swapused / 1024 / 1024 / 1024).toFixed(2)
+  const swapUsage = swaptotal ? (swapused / swaptotal).toFixed(2) : '0'
+
+  const diskTotal = `${(diskSize / 1024 / 1024 / 1024).toFixed(2)} GB`
+  const diskUsedText = (diskUsed / 1024 / 1024 / 1024).toFixed(2)
+  const diskUsage = diskSize ? (diskUsed / diskSize).toFixed(2) : '0'
+
+  return {
+    name,
+    dashboard: [
+      {
+        progress: +cpuUsage,
+        title: `${(+cpuUsage * 100).toFixed(0)}% - ${avg}Ghz`,
+      },
+      {
+        progress: +memoryUsage || 0,
+        title: Number.isNaN(+memoryUsed) ? ERROR_INFO : `${memoryUsed} / ${memoryTotal}`,
+      },
+      {
+        progress: +swapUsage || 0,
+        title: Number.isNaN(+swapUsed) ? ERROR_INFO : `${swapUsed} / ${swapTotal}`,
+      },
+      {
+        progress: +diskUsage || 0,
+        title: Number.isNaN(+diskUsedText) ? ERROR_INFO : `${diskUsedText} / ${diskTotal}`,
+      },
+    ],
+    information: [
+      {
+        key: 'CPU',
+        value: cpuInfo,
+      },
+      {
+        key: 'System',
+        value: distro,
+      },
+      {
+        key: 'Version',
+        value: koishiVersion,
+      },
+      {
+        key: 'Plugins',
+        value: `${pluginSize} loaded`,
+      },
+    ],
+    footer: durationTime(uptime),
+  }
+}
+
 export function apply(ctx: Context, config: Config) {
   ctx.command(config.command || "自检", "检查机器人状态", { authority: config.authority || 1 })
     .action(async ({ session }) => {
-      const systemInfo = await getSystemInfo(config.botName || "koishi", version, ctx.registry.size) as RenderInfo;
+      const systemInfo = await getSystemInfo(config.botName || "koishi", version, ctx.registry.size)
 
       let page: Page | undefined;
       try {
