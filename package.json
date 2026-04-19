@@ -1,7 +1,7 @@
 {
-  "name": "koishi-plugin-status-pro",
+  "name": "@shiraikuroko/koishi-plugin-status-pro",
   "description": "status pro",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -9,7 +9,6 @@
     "dist"
   ],
   "license": "MIT",
-  "scripts": {},
   "keywords": [
     "chatbot",
     "koishi",
@@ -18,7 +17,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Kabuda-czh/koishi-plugin-status-pro"
+    "url": "git+https://github.com/ShiraiKuroko003/koishi-plugin-status-pro"
   },
   "peerDependencies": {
     "koishi": "4.11.6",

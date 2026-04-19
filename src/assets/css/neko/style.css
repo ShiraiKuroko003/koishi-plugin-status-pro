@@ -44,7 +44,7 @@
 }
 
 #background-page .__dashboard-block {
-  --block-color: block;
+  --block-color: #ffb3cc;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -89,7 +89,7 @@
   line-height: 42px;
   font-size: 28px;
   font-family: "Gugi";
-  color: #b7a89e;
+  color: #7d6876;
 }
 
 #background-page .__footer {
@@ -97,6 +97,6 @@
   font-family: "HachiMaruPop";
   font-size: 22px;
   text-align: right;
-  color: #b7a89e;
-  -webkit-text-stroke: 0.5px #b7a89e;
+  color: #7d6876;
+  -webkit-text-stroke: 0.5px #7d6876;
 }
